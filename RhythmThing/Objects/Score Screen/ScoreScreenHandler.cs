@@ -1,13 +1,22 @@
-﻿using RhythmThing.Components;
+﻿using CSCore;
+using CSCore.Codecs;
+using RhythmThing.Components;
 using RhythmThing.System_Stuff;
+using RhythmThing.Utils;
 using System;
+using System.CodeDom;
 using System.Collections.Generic;
+using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Input;
 
 namespace RhythmThing.Objects.ScoreScreen
 {
+
+    
     public class ScoreScreenHandler : GameObject
     {
         /*
@@ -20,405 +29,314 @@ namespace RhythmThing.Objects.ScoreScreen
          * 90-99 = SS
          * 100 = SSS
          */
-        private Visual visual;
-        private Visual letterGrade;
-        private Visual backDrop;
-        private Visual clearGuage;
-        private Visual gradeCover;
+        private Visual songTitle;
+        private Visual gradeBar;
+        private Visual gradeletter;
+        private Visual percentBar;
+        private Visual gaugeOutline;
+        private Visual gauge;
+        private Visual lastBest;
+        private Visual yousuck;
+        private Visual[] numVisuals;
         private float percent;
-        private float guagePercent = -1;
         private float timePassed = 0;
-        private float guageTick = 0.01f;
-        private float coverWait = 0.05f;
-        private float coverTick = 0.005f;
-        private bool coverSlide = false;
-        string grade;
+        private float _lastScore;
+        private string _assetPath = Path.Combine(Program.contentPath, "MenuMusic", "ScoreScreen");
+        private string grade;
+        private float slideInTime = 0.5f;
+        private float time1 = 0f;
+        private float time2 = 0.25f/2;
+        private float time3 = 0.5f/2;
+        private float time4 = 0.75f/2;
+        private float startDoing = 1.25f;
+        private float timeForGauge = 5f;
+        private int lastTick = 0;
+        private int numOff = -9;
+        private int lastPercent = 0;
+        private float savePercent = 0;
+        private string lastGrade = "F";
+        private bool gaugeFinished = false;
+        private AudioTrack bgmMusic;
+        private string bgmName = "event.wav";
+        private ISampleSource scoreDing;
+        private bool over60 = false;
+        AudioTrack cheer;
         public override void End()
         {
-
+            Game.mainInstance.audioManager.removeTrack(bgmMusic);
+            if(cheer != null)
+            {
+                Game.mainInstance.audioManager.removeTrack(cheer);
+            }
         }
 
-        public override void Start(Game game)
+        private static string getGrade(float percent)
         {
-            components = new List<Component>();
-            percent = (float)game.notesHit / (float)game.totalNotes;
-            //just write it out for now
-            visual = new Visual();
-            letterGrade = new Visual();
-            backDrop = new Visual();
-            clearGuage = new Visual();
-            gradeCover = new Visual();
-            gradeCover.z = 2;
-            clearGuage.y = 25;
-            letterGrade.z = 1;
-            letterGrade.x = 60;
-            visual.y = 49;
-            percent = (float)Math.Floor(percent * 100);
-            char[] songName = ("Song: " + (game.songName)).ToCharArray();
-            char[] percentText = ("Percent: " + percent + "%").ToCharArray();
-            char[] grade;
-            
-            
-            //This esentially draws the letter sprites. Its a bit of a mess, but it works fine.
+            string grade = "NA";
             if (percent == 100)
             {
-                grade = "SSS".ToCharArray();
-                //first s
-                for (int i = 0; i < 10; i++)
-                {
-                    letterGrade.localPositions.Add(new Coords(i, 1, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(i, 0, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(10, i, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(9, i, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(1, i + 10, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(0, i + 10, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                }
-                for (int i = 0; i < 11; i++)
-                {
-                    letterGrade.localPositions.Add(new Coords(i, 10, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(i, 11, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(i, 20, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(i, 21, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                }
-                for (int i = 0; i < 10; i++)
-                {
-                    letterGrade.localPositions.Add(new Coords(i+12, 1, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(i+12, 0, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(10+12, i, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(9+12, i, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(1+12, i + 10, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(0+12, i + 10, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
+                grade = "SSS";
 
-                    letterGrade.localPositions.Add(new Coords(i + 24, 1, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(i + 24, 0, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(10 +24, i, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(9 + 24, i, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(1 + 24, i + 10, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(0 + 24, i + 10, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                }
-                for (int i = 0; i < 11; i++)
-                {
-                    letterGrade.localPositions.Add(new Coords(i+12, 10, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(i+12, 11, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(i+12, 20, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(i+12, 21, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-
-                    letterGrade.localPositions.Add(new Coords(i + 24, 10, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(i + 24, 11, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(i + 24, 20, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(i + 24, 21, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                }
-
-
-            } else if(percent >= 90)
-            {
-                letterGrade.x = 65;
-                grade = "SS".ToCharArray();
-                for (int i = 0; i < 10; i++)
-                {
-                    letterGrade.localPositions.Add(new Coords(i, 1, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(i, 0, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(10, i, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(9, i, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(1, i + 10, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(0, i + 10, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                }
-                for (int i = 0; i < 11; i++)
-                {
-                    letterGrade.localPositions.Add(new Coords(i, 10, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(i, 11, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(i, 20, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(i, 21, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                }
-                for (int i = 0; i < 10; i++)
-                {
-                    letterGrade.localPositions.Add(new Coords(i + 12, 1, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(i + 12, 0, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(10 + 12, i, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(9 + 12, i, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(1 + 12, i + 10, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(0 + 12, i + 10, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                }
-                for (int i = 0; i < 11; i++)
-                {
-                    letterGrade.localPositions.Add(new Coords(i + 12, 10, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(i + 12, 11, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(i + 12, 20, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(i + 12, 21, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                }
-
-
-            } else if(percent >=87)
-            {
-                letterGrade.x = 70;
-                grade = "S".ToCharArray();
-                for (int i = 0; i < 10; i++)
-                {
-                    letterGrade.localPositions.Add(new Coords(i, 1, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(i, 0, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(10, i, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(9, i, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(1, i + 10, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(0, i + 10, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                }
-                for (int i = 0; i < 11; i++)
-                {
-                    letterGrade.localPositions.Add(new Coords(i, 10, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(i, 11, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(i, 20, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                    letterGrade.localPositions.Add(new Coords(i, 21, ' ', ConsoleColor.Yellow, ConsoleColor.Yellow));
-                }
-
-            } else if(percent >= 80)
-            {
-                letterGrade.x = 69;
-                grade = "A".ToCharArray();
-                for (int i = 0; i < 21; i++)
-                {
-                    letterGrade.localPositions.Add(new Coords(0, i, ' ', ConsoleColor.Green, ConsoleColor.Green));
-                    letterGrade.localPositions.Add(new Coords(1, i, ' ', ConsoleColor.Green, ConsoleColor.Green));
-                    letterGrade.localPositions.Add(new Coords(15, i, ' ', ConsoleColor.Green, ConsoleColor.Green));
-                    letterGrade.localPositions.Add(new Coords(16, i, ' ', ConsoleColor.Green, ConsoleColor.Green));
-                }
-                for (int i = 0; i < 15; i++)
-                {
-                    letterGrade.localPositions.Add(new Coords(i, 20, ' ', ConsoleColor.Green, ConsoleColor.Green));
-                    letterGrade.localPositions.Add(new Coords(i, 19, ' ', ConsoleColor.Green, ConsoleColor.Green));
-                    letterGrade.localPositions.Add(new Coords(i, 13, ' ', ConsoleColor.Green, ConsoleColor.Green));
-                    letterGrade.localPositions.Add(new Coords(i, 12, ' ', ConsoleColor.Green, ConsoleColor.Green));
-                }
-            } else if(percent >= 73)
-            {
-                letterGrade.x = 69;
-                grade = "B".ToCharArray();
-
-                for (int i = 0; i < 21; i++)
-                {
-                    letterGrade.localPositions.Add(new Coords(0, i, ' ', ConsoleColor.Green, ConsoleColor.Blue));
-                    letterGrade.localPositions.Add(new Coords(1, i, ' ', ConsoleColor.Green, ConsoleColor.Blue));
-                    letterGrade.localPositions.Add(new Coords(15, i, ' ', ConsoleColor.Green, ConsoleColor.Blue));
-                    letterGrade.localPositions.Add(new Coords(16, i, ' ', ConsoleColor.Green, ConsoleColor.Blue));
-                }
-                for (int i = 0; i < 15; i++)
-                {
-                    letterGrade.localPositions.Add(new Coords(i, 20, ' ', ConsoleColor.Green, ConsoleColor.Blue));
-                    letterGrade.localPositions.Add(new Coords(i, 19, ' ', ConsoleColor.Green, ConsoleColor.Blue));
-                    letterGrade.localPositions.Add(new Coords(i, 11, ' ', ConsoleColor.Green, ConsoleColor.Blue));
-                    letterGrade.localPositions.Add(new Coords(i, 10, ' ', ConsoleColor.Green, ConsoleColor.Blue));
-                    letterGrade.localPositions.Add(new Coords(i, 9, ' ', ConsoleColor.Green, ConsoleColor.Blue));
-                    letterGrade.localPositions.Add(new Coords(i, 1, ' ', ConsoleColor.Green, ConsoleColor.Blue));
-                    letterGrade.localPositions.Add(new Coords(i, 0, ' ', ConsoleColor.Green, ConsoleColor.Blue));
-                }
-                letterGrade.localPositions.Add(new Coords(15, 20, ' ', ConsoleColor.Black, ConsoleColor.DarkGray));
-                letterGrade.localPositions.Add(new Coords(16, 20, ' ', ConsoleColor.Black, ConsoleColor.DarkGray));
-                letterGrade.localPositions.Add(new Coords(16, 19, ' ', ConsoleColor.Black, ConsoleColor.DarkGray));
-                letterGrade.localPositions.Add(new Coords(16, 0, ' ', ConsoleColor.Black, ConsoleColor.DarkGray));
-                letterGrade.localPositions.Add(new Coords(15, 0, ' ', ConsoleColor.Black, ConsoleColor.DarkGray));
-                letterGrade.localPositions.Add(new Coords(16, 1, ' ', ConsoleColor.Black, ConsoleColor.DarkGray));
-                letterGrade.localPositions.Add(new Coords(16, 10, ' ', ConsoleColor.Black, ConsoleColor.DarkGray));
-                letterGrade.localPositions.Add(new Coords(15, 10, ' ', ConsoleColor.Black, ConsoleColor.DarkGray));
-                letterGrade.localPositions.Add(new Coords(16, 11, ' ', ConsoleColor.Black, ConsoleColor.DarkGray));
-                letterGrade.localPositions.Add(new Coords(16, 9, ' ', ConsoleColor.Black, ConsoleColor.DarkGray));
-            } else if(percent >= 67)
-            {
-                letterGrade.x = 65;
-                grade = "C".ToCharArray();
-
-                for (int i = 0; i < 22; i++)
-                {
-                    letterGrade.localPositions.Add(new Coords(0, i, ' ', ConsoleColor.DarkYellow, ConsoleColor.DarkYellow));
-                    letterGrade.localPositions.Add(new Coords(1, i, ' ', ConsoleColor.DarkYellow, ConsoleColor.DarkYellow));
-
-                }
-                for (int i = 0; i < 15; i++)
-                {
-                    letterGrade.localPositions.Add(new Coords(i, 0, ' ', ConsoleColor.DarkYellow, ConsoleColor.DarkYellow));
-                    letterGrade.localPositions.Add(new Coords(i, 1, ' ', ConsoleColor.DarkYellow, ConsoleColor.DarkYellow));
-                    letterGrade.localPositions.Add(new Coords(i, 21, ' ', ConsoleColor.DarkYellow, ConsoleColor.DarkYellow));
-                    letterGrade.localPositions.Add(new Coords(i, 22, ' ', ConsoleColor.DarkYellow, ConsoleColor.DarkYellow));
-                }
-            } else if(percent >= 60)
-            {
-                letterGrade.x = 65;
-                for (int i = 0; i < 22; i++)
-                {
-                    letterGrade.localPositions.Add(new Coords(0, i, ' ', ConsoleColor.DarkGreen, ConsoleColor.DarkGreen));
-                    letterGrade.localPositions.Add(new Coords(1, i, ' ', ConsoleColor.DarkGreen, ConsoleColor.DarkGreen));
-
-                }
-                for (int i = 0; i < 19; i++)
-                {
-                    letterGrade.localPositions.Add(new Coords(14, i+2, ' ', ConsoleColor.DarkGreen, ConsoleColor.DarkGreen));
-                    letterGrade.localPositions.Add(new Coords(15, i+2, ' ', ConsoleColor.DarkGreen, ConsoleColor.DarkGreen));
-                }
-                for (int i = 0; i < 14; i++)
-                {
-                    letterGrade.localPositions.Add(new Coords(i, 0, ' ', ConsoleColor.DarkGreen, ConsoleColor.DarkGreen));
-                    letterGrade.localPositions.Add(new Coords(i, 1, ' ', ConsoleColor.DarkGreen, ConsoleColor.DarkGreen));
-                    letterGrade.localPositions.Add(new Coords(i, 22, ' ', ConsoleColor.DarkGreen, ConsoleColor.DarkGreen));
-                    letterGrade.localPositions.Add(new Coords(i, 21, ' ', ConsoleColor.DarkGreen, ConsoleColor.DarkGreen));
-                }
-                grade = "D".ToCharArray();
-            } else
-            {
-                letterGrade.x = 67;
-                for (int i = 0; i < 22; i++)
-                {
-                    letterGrade.localPositions.Add(new Coords(0, i, ' ', ConsoleColor.Red, ConsoleColor.Red));
-                    letterGrade.localPositions.Add(new Coords(1, i, ' ', ConsoleColor.Red, ConsoleColor.Red));
-
-                }
-                for (int i = 0; i < 15; i++)
-                {
-                    letterGrade.localPositions.Add(new Coords(i, 22, ' ', ConsoleColor.Red, ConsoleColor.Red));
-                    letterGrade.localPositions.Add(new Coords(i, 21, ' ', ConsoleColor.Red, ConsoleColor.Red));
-                    letterGrade.localPositions.Add(new Coords(i, 14, ' ', ConsoleColor.Red, ConsoleColor.Red));
-                    letterGrade.localPositions.Add(new Coords(i, 15, ' ', ConsoleColor.Red, ConsoleColor.Red));
-                }
-                grade = "F".ToCharArray();
-            }
-            for (int i = 0; i < 101; i++)
-            {
-                visual.localPositions.Add(new Coords(i, 0, ' ', ConsoleColor.Magenta, ConsoleColor.DarkGray));
-                visual.localPositions.Add(new Coords(i, -1, ' ', ConsoleColor.Magenta, ConsoleColor.DarkGray));
-                visual.localPositions.Add(new Coords(i, -2, ' ', ConsoleColor.Magenta, ConsoleColor.DarkGray));
-            }
-            for (int i = 0; i < songName.Length; i++)
-            {
-                visual.localPositions.Add(new Coords((100/2)-(songName.Length/2)+i, -1, songName[i], ConsoleColor.White, ConsoleColor.DarkGray));
-            }
-            for (int i = 0; i < percentText.Length; i++)
-            {
-                visual.localPositions.Add(new Coords(i+13, -30, percentText[i], ConsoleColor.White, ConsoleColor.DarkGray));
-                
-            }
-            char[] enter = "Press enter to return to the main menu".ToCharArray();
-            for (int i = 0; i < enter.Length; i++)
-            {
-                visual.localPositions.Add(new Coords(i, -40, enter[i], ConsoleColor.White, ConsoleColor.DarkGray));
 
             }
+            else if (percent >= 90)
+            {
+                grade = "SS";
 
-            //draw backdrop and grade cover
-            for (int x = 60; x < 100; x++)
-            {
-                for (int y = 0; y < 25; y++)
-                {
-                    backDrop.localPositions.Add(new Coords(x, y, ' ', ConsoleColor.Magenta, ConsoleColor.DarkGray));
-                    backDrop.localPositions.Add(new Coords(x-60, y, ' ', ConsoleColor.Magenta, ConsoleColor.DarkGray));
 
-                    gradeCover.localPositions.Add(new Coords(x, y, ' ', ConsoleColor.Magenta, ConsoleColor.DarkGray));
-                    gradeCover.localPositions.Add(new Coords(x - 60, y, ' ', ConsoleColor.Magenta, ConsoleColor.DarkGray));
-                }
             }
-            //draw "clear line"
-            for (int x = 40; x < 60; x++)
+            else if (percent >= 87)
             {
-                for (int y = 0; y < 25; y++)
-                {
-                    backDrop.localPositions.Add(new Coords(x, y, ' ', ConsoleColor.Red, ConsoleColor.Red));
+                grade = "S";
 
-                }
             }
-            for (int i = 25; i < 100; i++)
+            else if (percent >= 80)
             {
-                backDrop.localPositions.Add(new Coords(59, i, ' ', ConsoleColor.Red, ConsoleColor.Red));
-            }
-            char[] GradeText = "Grade".ToCharArray();
-            for (int i = 0; i < GradeText.Length; i++)
-            {
-                backDrop.localPositions.Add(new Coords(i+75, 24, GradeText[i], ConsoleColor.White, ConsoleColor.Gray));
-            }
-            //draw clear guage
-            
-            for (int i = 0; i < percent; i++)
-            {
-                //clearGuage.localPositions.Add(new Coords(i, 0, ' ', ConsoleColor.Green, ConsoleColor.Green));
-            }
+                grade = "A";
 
-            visual.active = true;
-            letterGrade.active = true;
-            backDrop.active = true;
-            clearGuage.active = true;
-            gradeCover.active = true;
-            components.Add(backDrop);
-            components.Add(visual);
-            components.Add(letterGrade);
-            components.Add(clearGuage);
-            components.Add(gradeCover);
-            
+
+            }
+            else if (percent >= 73)
+            {
+                grade = "B";
+
+
+            }
+            else if (percent >= 67)
+            {
+                grade = "C";
+
+
+            }
+            else if (percent >= 60)
+            {
+                grade = "D";
+
+            }
+            else
+            {
+                grade = "F";
+
+            }
+            if (grade == "NA")
+            {
+                throw new Exception("NO VALID SCORE");
+
+            }
+            return grade;
         }
+        public override void Start(Game game)
+        {
+            //a fix to a bug
+            game.display.windowManager.CenterWindow();
+
+            components = new List<Component>();
+            savePercent = (((float)game.notesHit / (float)game.totalNotes)*100);
+            percent = (float)Math.Floor(savePercent);
+            grade = "NA";
+            grade = getGrade(savePercent);
+
+
+            
+            _lastScore = PlayerSettings.Instance.chartScores[game.songHash].percent;
+            if (savePercent > PlayerSettings.Instance.chartScores[game.songHash].percent)
+            {
+                PlayerSettings.Instance.SaveScore(game.songHash, grade, percent);
+
+            }
+
+
+            //visual stuff!
+            
+            //songTitle
+            songTitle = new Visual();
+            songTitle.LoadBMP(Path.Combine(_assetPath, "songTitle.bmp"));
+            songTitle.active = true;
+            songTitle.writeText(50-(game.songName.Length/2), 47, game.songName, ConsoleColor.Black, ConsoleColor.White);
+            components.Add(songTitle);
+            //grade bar
+            gradeBar = new Visual();
+            gradeBar.LoadBMP(Path.Combine(_assetPath, "gradeBar.bmp"));
+            components.Add(gradeBar);
+            //grade letter (may merge)
+            gradeletter = new Visual();
+            gradeletter.z = 1;
+            gradeletter.LoadBMP(Path.Combine(_assetPath, $"gradeF.bmp"));
+            components.Add(gradeletter);
+            //percent bar
+            percentBar = new Visual();
+            percentBar.LoadBMP(Path.Combine(_assetPath, "percentBar.bmp"));
+            components.Add(percentBar);
+            //guage (god help me)
+            gaugeOutline = new Visual();
+            gaugeOutline.z = 1;
+            gaugeOutline.LoadBMP(Path.Combine(_assetPath, "gaugeOutline.bmp"));
+            components.Add(gaugeOutline);
+            
+            gauge = new Visual();
+            gauge.active = false;
+            gauge.LoadBMP(Path.Combine(_assetPath, "gauge.bmp"));
+            components.Add(gauge);
+            gauge.overrideColor = true;
+            gauge.overridefront = ConsoleColor.Red;
+            //numbers
+            numVisuals = new Visual[3];
+            for (int i = 0; i < numVisuals.Length; i++)
+            {
+                numVisuals[i] = new Visual();
+                numVisuals[i].z = 1;
+                numVisuals[i].x = numOff * i;
+                numVisuals[i].active = true;//fornow
+                numVisuals[i].LoadBMP(Path.Combine(_assetPath, "0.bmp"));
+                components.Add(numVisuals[i]);
+            }
+            //last best
+            lastBest = new Visual();
+            lastBest.active = false;
+            lastBest.z = -1;
+            lastBest.LoadBMP(Path.Combine(_assetPath, "gauge.bmp"), new int[] {-100+(int)Math.Ceiling(_lastScore), 0 });
+            components.Add(lastBest);
+            lastBest.overrideColor = true;
+            lastBest.overridefront = ConsoleColor.Gray;
+            //easter egg for doing really badly
+            yousuck = new Visual();
+            yousuck.active = false;
+            yousuck.z = 10;
+            yousuck.LoadBMP(Path.Combine(_assetPath, "yousuck.bmp"));
+            components.Add(yousuck);
+            scoreDing = CodecFactory.Instance.GetCodec(Path.Combine(_assetPath, "exp.wav")).ChangeSampleRate(AudioManager.sampleRate).ToStereo().ToSampleSource();
+            bgmMusic = game.audioManager.addTrack(Path.Combine(_assetPath, bgmName));
+
+        }
+
+
 
         public override void Update(double time, Game game)
         {
-            //draw guage
-            //timePassed = 20;
-            if (timePassed >= guageTick)
-            {
-                if(guagePercent <= percent)
-                {
-                    if(guagePercent < 60)
-                    {
-                        for (int y = 0; y < 22; y++)
-                        {
-                            clearGuage.localPositions.Add(new Coords((int)guagePercent-1, y, ' ', ConsoleColor.Red, ConsoleColor.Red));
-                        }
-                        game.audioManager.playForget("syssd_score.mp3");
-                        guagePercent++;
-                    } else if(guagePercent == 60)
-                    {
-                        clearGuage.localPositions.Clear();
-                        for (int x = 0; x < 60; x++)
-                        {
-                            for (int y = 0; y < 22; y++)
-                            {
-                                clearGuage.localPositions.Add(new Coords(x, y, ' ', ConsoleColor.Green, ConsoleColor.Green));
-                            }
-                        }
-                        for (int x = 40; x < 60; x++)
-                        {
-                            for (int y = 0; y < 25; y++)
-                            {
-                                backDrop.localPositions.Add(new Coords(x, y, ' ', ConsoleColor.Green, ConsoleColor.Green));
-
-                            }
-                        }
-                        game.audioManager.playForget("syssd_res_2.mp3");
-                        guagePercent++;
-                    } else
-                    {
-                        for (int y = 0; y < 22; y++)
-                        {
-                            clearGuage.localPositions.Add(new Coords((int)guagePercent - 1, y, ' ', ConsoleColor.Green, ConsoleColor.Green));
-                        }
-                        game.audioManager.playForget("syssd_score.mp3");
-                        guagePercent++;
-                    }
-                    timePassed = 0; 
-                } else 
-                {
-                    
-                }
-            }
-            if(guagePercent >= percent)
-            {
-                if(coverSlide)
-                {
-                    if(timePassed >= coverTick)
-                    {
-                        gradeCover.y--;
-                        timePassed = 0;
-                    }
-                } else if(timePassed >= coverWait)
-                {
-                    timePassed = 0;
-                    coverSlide = true;
-                }
-            }
+            #region Animations
             timePassed = timePassed + (float)time;
-            if(Input.enterKey == Input.buttonState.press || Input.escKey == Input.buttonState.press)
+            if(timePassed >= time1)
             {
-                game.sceneManager.loadScene(0);
+                songTitle.active = true;
+                time1 = float.MaxValue;
+                songTitle.Animate(new int[] { -100, 0 }, new int[] { 0, 0 }, "easeOutExpo", slideInTime);
+
+            }
+            if (timePassed >= time2)
+            {
+                gaugeOutline.active = true;
+                lastBest.active = true;
+                time2 = float.MaxValue;
+                gaugeOutline.Animate(new int[] { -100, 0 }, new int[] { 0, 0 }, "easeOutExpo", slideInTime);
+                lastBest.Animate(new int[] { -100, 0 }, new int[] { 0, 0 }, "easeOutExpo", slideInTime);
+            }
+            if (timePassed >= time3)
+            {
+                percentBar.active = true;
+                time3 = float.MaxValue;
+                percentBar.Animate(new int[] { -100, 0 }, new int[] { 0, 0 }, "easeOutExpo", slideInTime);
+                for (int i = 0; i < numVisuals.Length; i++)
+                {
+                    numVisuals[i].Animate(new int[] { -100, 0 }, new int[] { numVisuals[i].x, 0 }, "easeOutExpo", slideInTime + (float)(0.5 * i));
+                }
+                
+            }
+            if(timePassed >= time4)
+            {
+                gradeBar.active = true;
+                time4 = float.MaxValue;
+                gradeBar.Animate(new int[] { -100, 0 }, new int[] { 0, 0 }, "easeOutExpo", slideInTime);
+                gradeletter.active = true;
+                gradeletter.Animate(new int[] { -100, 0 }, new int[] { 0, 0 }, "easeOutExpo", slideInTime+0.5f);
+
+            }
+            if(timePassed >= startDoing&& !gaugeFinished)
+            {
+
+                int percentVal = (int)Math.Ceiling(percent * Ease.Sinusoidal.InOut(((timePassed - startDoing) / timeForGauge)));
+                if ((timePassed - startDoing) >= timeForGauge || percent == 0)
+                {
+                    gaugeFinished = true;
+                    percentVal = (int)percent;
+                    if (percent == 0 && !game.exitViaEsc)
+                    {
+                        yousuck.active = true;
+                        yousuck.Animate(new int[] { 0, 100 }, new int[] { 0, 0 }, "easeOutBounce", 1f);
+                        cheer = game.audioManager.addTrack(Path.Combine(_assetPath, "failsound.wav"));
+                        cheer.volumeSource.Volume = 1.0f;
+                    }
+                }
+                if(percentVal > lastPercent)
+                {
+                    scoreDing.Position = 0;
+                    game.audioManager.playForget(scoreDing);
+                    for (int i = 0; i < numVisuals.Length; i++)
+                    {
+                        numVisuals[i].localPositions.Clear();
+                    }
+                    int third = (percentVal == 100) ? 1 : 0;
+                    int second = (percentVal / 10) % 10;
+                    int first = (percentVal) % 10;
+                    numVisuals[0].LoadBMP(Path.Combine(_assetPath, $"{first}.bmp"));
+                    numVisuals[1].LoadBMP(Path.Combine(_assetPath, $"{second}.bmp"));
+                    numVisuals[2].LoadBMP(Path.Combine(_assetPath, $"{third}.bmp"));
+                    gauge.active = true;
+                    gauge.x = (-100) + percentVal;
+
+                    if (percentVal > 60 && !over60)
+                    {
+                        //ya PASSED bud
+                        gauge.overridefront = ConsoleColor.Green;
+                        game.audioManager.playForget(Path.Combine(_assetPath, "res.wav"));
+                        over60 = true;
+
+                        //idk play a cheer
+                    }
+                    if (getGrade(percentVal) != lastGrade)
+                    {
+                        lastTick++;
+                        lastGrade = getGrade(percentVal);
+                        int amount = 40;
+                        int sExtra = 0;
+                        if(lastGrade != "D")
+                        {
+                            game.audioManager.playForget(Path.Combine(_assetPath,"touch.wav"));
+
+                        }
+                        if(lastGrade == "SSS")
+                        {
+                            sExtra = 20;
+                            cheer = game.audioManager.addTrack(Path.Combine(_assetPath, "cheer.wav"));
+                        }
+
+                        gradeletter.LoadBMP(Path.Combine(_assetPath, $"grade{lastGrade}.bmp"), new int[] { (lastTick * amount)+sExtra, 0 });
+                        gradeletter.Animate(new int[] { gradeletter.x, gradeletter.y }, new int[] { gradeletter.x - ( amount+sExtra), gradeletter.y }, "easeOutQuad", 0.155f, true);
+                    }
+                    lastPercent = percentVal;
+                }
+
+
+            }
+            #endregion
+
+            #region BGM
+            if (bgmMusic.sampleSource.GetPosition().TotalMilliseconds >= bgmMusic.sampleSource.GetLength().TotalMilliseconds - 50)
+            {
+                bgmMusic.sampleSource.Position = 0;
+            }
+
+            #endregion
+
+            if (game.input.ButtonStates[Input.ButtonKind.Confirm] == Input.ButtonState.Press || game.input.ButtonStates[Input.ButtonKind.Cancel] == Input.ButtonState.Press)
+            {
+                if (!gaugeFinished)
+                {
+                    timePassed = 2000f;
+                } else
+                {
+                    game.sceneManager.loadScene(0);
+
+                }
             }
         }
     }

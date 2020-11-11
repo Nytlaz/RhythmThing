@@ -13,6 +13,8 @@ namespace RhythmThing.System_Stuff
         public static float approachSpeed = 5300;
         public static float scoringTime = 100;
         public static float missTime = 250;
+        private int frames = 0;
+        private float timePassed = 0;
         //a ref to the game instance JUST in case
         public static Game mainInstance;
         //the current "State" of the game loop
@@ -37,11 +39,12 @@ namespace RhythmThing.System_Stuff
 
         //audio manager
         public AudioManager audioManager;
-
+        public bool exitViaEsc = false;
         //these are for storing information between scenes.
         public string ChartToLoad;
         public int totalNotes = 100;
-        public int notesHit = 80;
+        public int notesHit = 100;
+        public string songHash = "1tb56k0XFKSw49gL2xm0lA==";
         public string songName = "Test song name";
         //private List<GameObject> toRemove;
         //for our good ol friend deltatime
@@ -66,14 +69,19 @@ namespace RhythmThing.System_Stuff
             */
             display = new Display();
             addBuffer = new List<GameObject>();
-            input = new Input();
+            input = Input.Instance;
             deltaTime = 0;
             sceneManager = new SceneManager(this);
             //entry point
+
             sceneManager.loadScene(0);
-            while(gameLoopLives)
+
+            //debug scene
+            //sceneManager.loadScene(5);
+
+            while (gameLoopLives)
             {
-                
+
 
                 this.Loop();
 
@@ -102,8 +110,8 @@ namespace RhythmThing.System_Stuff
 
             //put in test object
             //mainInstance.addGameObject(new LeftArrow());
-           // mainInstance.addGameObject(new RightArrow());
-           //mainInstance.addGameObject(new DownArrow());
+            // mainInstance.addGameObject(new RightArrow());
+            //mainInstance.addGameObject(new DownArrow());
             //mainInstance.addGameObject(new UpArrow());
             //mainInstance.addGameObject(new Chart("Metronome80"));
 
@@ -116,7 +124,8 @@ namespace RhythmThing.System_Stuff
             //changing scene stuff
             foreach (GameObject obj in gameObjects)
             {
-               obj.alive = false;
+                obj.alive = false;
+                obj.End();
             }
 
             addBuffer = new List<GameObject>(sceneManager.initScene());
@@ -132,7 +141,7 @@ namespace RhythmThing.System_Stuff
                     obj.Start(this);
                     gameObjects.Add(obj);
 
-                    if(obj.type == objType.visual)
+                    if (obj.type == objType.visual)
                     {
                         display.AddObject(obj);
                     }
@@ -140,9 +149,9 @@ namespace RhythmThing.System_Stuff
                 gameObjectsToAdd.Clear();
                 //calculate objects that exist
                 toRemove.Clear();
-                foreach(GameObject obj in gameObjects)
+                foreach (GameObject obj in gameObjects)
                 {
-                    if(obj.alive)
+                    if (obj.alive)
                     {
                         //run the components first or last?
                         foreach (Component comp in obj.components)
@@ -151,7 +160,8 @@ namespace RhythmThing.System_Stuff
                         }
 
                         obj.Update(deltaTime, this);
-                    } else
+                    }
+                    else
                     {
                         toRemove.Add(obj);
                         obj.End();
@@ -162,14 +172,29 @@ namespace RhythmThing.System_Stuff
                     gameObjects.Remove(obj);
                     display.RemoveObject(obj);
                 }
+
+
+                display.DrawFrame(deltaTime);
+
+
+
+                input.UpdateInput();
+                // your code
+
                 Thread.Sleep(1); //just in case
                 stopwatch.Stop();
                 deltaTime = stopwatch.ElapsedMilliseconds * 0.001;
-                display.DrawFrame(deltaTime);
-                
-                Input.UpdateInput();
-                    // your code
-                
+
+                //calculate framerate
+                frames++;
+                if (timePassed > 1000)
+                {
+                    Console.Title = $"FPS: {frames}";
+                    frames = 0;
+                    timePassed = 0;
+                }
+                timePassed += stopwatch.ElapsedMilliseconds;
+
                 stopwatch.Reset();
                 //Console.WriteLine("frame");
             }

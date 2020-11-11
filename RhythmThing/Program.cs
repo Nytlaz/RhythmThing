@@ -4,6 +4,10 @@ using RhythmThing.Objects;
 using System.Text;
 using System.Globalization;
 using System.Threading;
+using RhythmThing.Utils;
+using System.IO;
+using System.Security.Cryptography;
+
 namespace RhythmThing
 {
 
@@ -26,12 +30,18 @@ namespace RhythmThing
         //STATICS
         public static int ScreenX = 100;
         public static int ScreenY = 50;
-        
+        public static string contentPath;
+        public static MD5 mD5 = MD5.Create();
         //this feels wrong but it works!
         [STAThread]
+         
         static void Main(string[] args)
         {
+            contentPath = Path.Combine(Directory.GetCurrentDirectory(), "!Content");
+            //backup last log
+            Logger.NewLog();
 
+            Logger.DebugLog("we're starting!");
             //needed for some locale I guess
             CultureInfo nonInvariantCulture = new CultureInfo("en-US");
             Thread.CurrentThread.CurrentCulture = nonInvariantCulture;
@@ -42,6 +52,9 @@ namespace RhythmThing
             //Line needed for some pcs
             Console.WriteLine("proof");
             Console.OutputEncoding = Encoding.Unicode;
+            //load player settings
+            PlayerSettings.Instance.ReadSettings();
+
             Game main = new Game(ScreenX, ScreenY);
             //testOUTPUT test = new testOUTPUT();
            // test.Setup();

@@ -6,6 +6,8 @@ using RhythmThing.System_Stuff;
 using Newtonsoft.Json;
 using System.IO;
 using CSCore;
+using System.Reflection;
+using System.Security.Cryptography;
 
 namespace RhythmThing.Objects
 {
@@ -31,12 +33,21 @@ namespace RhythmThing.Objects
             public string chartAuthor;
             //might not implement that one honestly
             public float preview;
+            public float previewLength;
             public NoteInfo[] notes;
             public EventInfo[] events;
             public int difficulty;
+            public videoInfo video;
 
         }
-        
+        public struct videoInfo
+        {
+            public int framerate;
+            public string videoPath;
+            public int frames;
+            public int[] startPoint;
+
+        }
         public struct NoteInfo
         {
             public float time;
@@ -54,11 +65,11 @@ namespace RhythmThing.Objects
         // ---END OF STRUCTS AND ENUMS---
         public static Chart instance;
         private string folderName;
-        private string chartPath;
+        public string chartPath;
         public JsonChart chartInfo;
         private AudioTrack song;
         private List<NoteInfo> msNotes;
-        
+        public string hash;
 
         private Receiver leftReceiver;
         private Receiver downReceiver;
@@ -68,6 +79,7 @@ namespace RhythmThing.Objects
         public ScoreHandler scoreHandler;
         private ChartEventHandler chartEventHandler;
         public float beat;
+        public float vBeat;
         public float approachBeat;
         public float scoreTime;
         public float missTime;
@@ -75,13 +87,18 @@ namespace RhythmThing.Objects
         private float lastBPMChangeBeat = 0;
         private double mstoSUB = 0;
         private float beatstoADD = 0;
+        
         public Chart(string path)
         {
             folderName = path;
             chartPath = Path.Combine(Directory.GetCurrentDirectory(), "!Content/!Songs", path);
            // Console.WriteLine(chartPath);
             chartInfo = JsonConvert.DeserializeObject<JsonChart>(File.ReadAllText(Path.Combine(chartPath, "ChartInfo.json")));
-        
+            if(chartInfo.previewLength == 0)
+            {
+                chartInfo.previewLength = 3;
+            }
+            hash = Convert.ToBase64String(Program.mD5.ComputeHash(File.ReadAllBytes(Path.Combine(chartPath, "ChartInfo.json"))));
         }
 
         public override void End()
@@ -91,6 +108,21 @@ namespace RhythmThing.Objects
 
         public override void Start(Game game)
         {
+            /*test plugin loading
+
+            Assembly testAssembly = Utils.PluginLoader.LoadPlugin(Path.Combine(chartPath, "script.dll"));
+            SongScript testScript = null;
+            foreach(Type type in testAssembly.GetTypes())
+            {
+                if(typeof(SongScript).IsAssignableFrom(type))
+                {
+                    testScript = Activator.CreateInstance(type) as SongScript;
+
+                }
+            }
+            testScript.runScript();
+            */
+            
             instance = this;
             Arrow.movementAmount = 75; //static amount
             this.components = new List<Component>();
@@ -144,14 +176,24 @@ namespace RhythmThing.Objects
                 //msNotes.Add()
             }
 
+            //check if theres a video
+            if(chartInfo.video.videoPath != null)
+            {
+                game.addGameObject(new VideoPlayer(Path.Combine(chartPath, chartInfo.video.videoPath),chartPath, Path.Combine(chartPath, "ChartInfo.json"), chartInfo.video, this));
+            }
+
             scoreHandler = new ScoreHandler(this, chartInfo.notes.Length);
             game.addGameObject(scoreHandler);
             game.addGameObject(chartEventHandler);
             firstBPM = chartInfo.bpm;
             song = game.audioManager.addTrack(Path.Combine(chartPath, chartInfo.songPath));
+            double tempbeat = beatstoADD + (((TimeConverterFactory.Instance.GetTimeConverterForSource(song.sampleSource).ToTimeSpan(song.sampleSource.WaveFormat, song.sampleSource.Length).TotalMilliseconds) * ((float)(firstBPM) / 60000)));
+            VideoPlayer.LastBeat = (float)Math.Round(tempbeat, 2);
             //debug obj
             game.addGameObject(new ChartDebug(this));
-            float startBeat = 354;
+
+
+
             //song.sampleSource.SetPosition(TimeSpan.FromMilliseconds(startBeat / ((float)(chartInfo.bpm) / 60000)));
 
         }
@@ -174,21 +216,28 @@ namespace RhythmThing.Objects
             double tempbeat = beatstoADD + (((TimeConverterFactory.Instance.GetTimeConverterForSource(song.sampleSource).ToTimeSpan(song.sampleSource.WaveFormat, song.sampleSource.Position).TotalMilliseconds + (chartInfo.offset * 1000) - mstoSUB) * ((float)(chartInfo.bpm) / 60000)));
             beat = (float)Math.Round(tempbeat, 2);
 
+            double tempbeat2 = (((TimeConverterFactory.Instance.GetTimeConverterForSource(song.sampleSource).ToTimeSpan(song.sampleSource.WaveFormat, song.sampleSource.Position).TotalMilliseconds) * ((float)(firstBPM) / 60000)));
+            vBeat = (float)Math.Round(tempbeat2, 2);
+
             if (song.sampleSource.GetLength().TotalMilliseconds <= song.sampleSource.GetPosition().TotalMilliseconds)
             {
                 //we are done.
+                game.exitViaEsc = false;
                 game.notesHit = scoreHandler.hits;
                 game.totalNotes = scoreHandler.notes;
                 game.songName = this.chartInfo.songName;
+                game.songHash = this.hash;
                 game.audioManager.removeTrack(song);
                 game.sceneManager.loadScene(2);
                 
             }
-            if(Input.escKey == Input.buttonState.press)
+            if(game.input.ButtonStates[Input.ButtonKind.Cancel] == Input.ButtonState.Press)
             {
+                game.exitViaEsc = true;
                 game.notesHit = scoreHandler.hits;
                 game.totalNotes = scoreHandler.notes;
                 game.songName = this.chartInfo.songName;
+                game.songHash = this.hash;
                 game.audioManager.removeTrack(song);
                 game.sceneManager.loadScene(2);
 

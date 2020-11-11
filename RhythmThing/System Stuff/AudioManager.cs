@@ -19,8 +19,8 @@ namespace RhythmThing.System_Stuff
      */
     public class AudioManager
     {
-        const int sampleRate = 44100;
-        const int latency = 5;
+        public const int sampleRate = 44100;
+        const int latency = 1;
         Mixer mixer;
         public List<AudioTrack> tracks;
         WasapiOut soundOut;
@@ -49,11 +49,20 @@ namespace RhythmThing.System_Stuff
             return track;
 
         }
+        public void addTrack(AudioTrack track)
+        {
+            mixer.AddSource(track.sampleSource);
+            tracks.Add(track);
+        }
 
         public void removeTrack(AudioTrack track)
         {
-            mixer.RemoveSource(track.sampleSource);
-            tracks.Remove(track);
+            if(track != null)
+            {
+                mixer.RemoveSource(track.sampleSource);
+                tracks.Remove(track);
+
+            }
 
         }
 
